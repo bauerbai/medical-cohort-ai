@@ -244,17 +244,103 @@ async def describe_data_dictionary() -> dict[str, Any]:
                 (SELECT COUNT(*) FROM ukb_semantic.unified_first_occurrences WHERE event_name_cn IS NOT NULL) AS first_occurrences_labeled;
             """
         )
+        field_audit = await connection.fetchrow(
+            """
+            SELECT
+                (
+                    SELECT COUNT(*)
+                    FROM information_schema.columns
+                    WHERE table_schema = 'ukb_semantic'
+                      AND table_name <> 'concept_dictionary'
+                ) AS raw_business_field_count,
+                (
+                    SELECT COUNT(*)
+                    FROM ukb_semantic.concept_dictionary
+                    WHERE domain = 'field'
+                ) AS field_dictionary_rows,
+                (
+                    SELECT COUNT(*)
+                    FROM ukb_semantic.concept_dictionary
+                    WHERE domain = 'table'
+                ) AS table_dictionary_rows,
+                (
+                    SELECT COUNT(*)
+                    FROM ukb_semantic.concept_dictionary
+                    WHERE domain = 'code_system'
+                ) AS code_system_rows;
+            """
+        )
+        code_audit = await connection.fetchrow(
+            """
+            SELECT
+                (SELECT COUNT(DISTINCT mapped_icd10) FROM ukb_semantic.unified_diagnoses WHERE mapped_icd10 IS NOT NULL) AS distinct_mapped_icd10,
+                (SELECT COUNT(DISTINCT raw_code) FROM ukb_semantic.unified_diagnoses WHERE raw_code IS NOT NULL) AS distinct_diagnosis_raw_code,
+                (SELECT COUNT(DISTINCT raw_code) FROM ukb_semantic.unified_diagnoses WHERE source = 'GP_Clinical' AND raw_code IS NOT NULL) AS distinct_gp_raw_code,
+                (SELECT COUNT(DISTINCT raw_code) FROM ukb_semantic.unified_diagnoses WHERE source = 'HESIN' AND raw_code IS NOT NULL) AS distinct_hes_raw_code,
+                (SELECT COUNT(DISTINCT original_code) FROM ukb_semantic.unified_medications WHERE original_code IS NOT NULL) AS distinct_med_original_code,
+                (SELECT COUNT(DISTINCT field_id) FROM ukb_semantic.unified_first_occurrences WHERE field_id IS NOT NULL) AS distinct_ukb_field_id;
+            """
+        )
     finally:
         await release_db_connection(connection)
 
     domains = [dict(row) for row in domain_rows]
     example_rows = [dict(row) for row in examples]
     coverage_dict = dict(coverage) if coverage else {}
+    field_audit_dict = dict(field_audit) if field_audit else {}
+    code_audit_dict = dict(code_audit) if code_audit else {}
+    raw_field_count = field_audit_dict.get("raw_business_field_count") or 0
+    field_dictionary_rows = field_audit_dict.get("field_dictionary_rows") or 0
+    field_coverage = field_dictionary_rows / raw_field_count if raw_field_count else 0
     domain_text = "、".join(f"{row['domain']} {row['concept_count']}条" for row in domains) or "暂无 concept_dictionary 记录"
     example_text = "、".join(
         f"{row['domain']}:{row['concept_code']}→{row['concept_name_cn']}"
         for row in example_rows[:8]
     ) or "暂无示例"
+    code_system_status = [
+        {
+            "code_system": "ICD-10",
+            "status": "partially_structured",
+            "storage": "unified_diagnoses.mapped_icd10",
+            "distinct_codes": code_audit_dict.get("distinct_mapped_icd10", 0),
+            "note": "已统一到 mapped_icd10，但中文 disease 概念映射仍是核心疾病子集。",
+        },
+        {
+            "code_system": "Read2/Read3/CTV3",
+            "status": "raw_only",
+            "storage": "unified_diagnoses.raw_code where source='GP_Clinical'",
+            "distinct_codes": code_audit_dict.get("distinct_gp_raw_code", 0),
+            "note": "当前保留原始 GP 诊断码，尚未拆成 read2_code/read3_code 标准列，也未接入完整 Read 词表。",
+        },
+        {
+            "code_system": "ICD-9",
+            "status": "not_modeled",
+            "storage": None,
+            "distinct_codes": 0,
+            "note": "当前 schema 未发现独立 ICD-9 字段。",
+        },
+        {
+            "code_system": "BNF",
+            "status": "not_modeled",
+            "storage": "unified_medications.therapeutic_chapter",
+            "distinct_codes": 0,
+            "note": "当前没有独立 BNF code 字段；therapeutic_chapter 不能等价于 BNF 编码。",
+        },
+        {
+            "code_system": "dm+d/SNOMED medication codes",
+            "status": "raw_only",
+            "storage": "unified_medications.original_code",
+            "distinct_codes": code_audit_dict.get("distinct_med_original_code", 0),
+            "note": "当前多为数字药物原始码，疑似 dm+d/SNOMED 风格；尚未接入完整 dm+d 词表。",
+        },
+        {
+            "code_system": "UKB Field ID",
+            "status": "partially_structured",
+            "storage": "unified_first_occurrences.field_id",
+            "distinct_codes": code_audit_dict.get("distinct_ukb_field_id", 0),
+            "note": "当前有 Field ID 字段，中文 event_name_cn 仅覆盖已导入字典的首发事件。",
+        },
+    ]
 
     return {
         "status": "success",
@@ -263,6 +349,9 @@ async def describe_data_dictionary() -> dict[str, Any]:
         "dictionary_exists": bool(dictionary_exists),
         "domains": domains,
         "examples": example_rows,
+        "field_audit": {**field_audit_dict, "field_coverage": field_coverage},
+        "code_system_audit": code_audit_dict,
+        "code_system_status": code_system_status,
         "semantic_columns": [
             {
                 "table": "ukb_semantic.patient_master_index",
@@ -291,10 +380,12 @@ async def describe_data_dictionary() -> dict[str, Any]:
         ],
         "coverage": coverage_dict,
         "suggested_reply": (
-            "主任，这个库的数据字典分两层：第一层是全局概念字典表 "
+            "主任，我重新做了全量 schema 扫描。这个库的数据字典现在分三层：第一层是字段级字典，"
+            f"当前 6 张业务表共有 {raw_field_count} 个字段，concept_dictionary 中 field 域已登记 {field_dictionary_rows} 个，"
+            f"字段覆盖率 {field_coverage:.1%}。第二层是全局概念字典表 "
             "ukb_semantic.concept_dictionary，字段包括 domain、concept_code、concept_name_en、concept_name_cn，"
             f"目前按领域统计为：{domain_text}。示例包括：{example_text}。"
-            "第二层是已经写回原表的语义化列：patient_master_index.sex_label 用于男/女标签；"
+            "第三层是已经写回原表的语义化列：patient_master_index.sex_label 用于男/女标签；"
             "unified_diagnoses.disease_name_cn 用于 ICD-10/诊断描述到中文疾病名；"
             "unified_medications.drug_name_cn 用于 ATC 或药物名称到中文通用名；"
             "unified_first_occurrences.event_name_cn 用于 UKB Field ID 到首发事件中文名。"
@@ -302,10 +393,14 @@ async def describe_data_dictionary() -> dict[str, Any]:
             f"诊断中文名 {coverage_dict.get('diagnoses_labeled', 0)}行，"
             f"药物中文名 {coverage_dict.get('medications_labeled', 0)}行，"
             f"首发事件中文名 {coverage_dict.get('first_occurrences_labeled', 0)}行。"
+            "编码体系覆盖方面：ICD-10 已有 mapped_icd10 字段，"
+            f"distinct mapped_icd10 为 {code_audit_dict.get('distinct_mapped_icd10', 0)}；"
+            f"GP 原始诊断码 distinct {code_audit_dict.get('distinct_gp_raw_code', 0)}，目前仍是 raw_code 保留，尚未拆成完整 Read2/Read3 标准词表；"
+            f"用药 original_code distinct {code_audit_dict.get('distinct_med_original_code', 0)}，当前尚未完整接入 BNF/dm+d 词表；"
+            "ICD-9 当前 schema 未发现独立字段。"
             "所以前端和 Agent 展示时会优先用这些 _cn 或 _label 字段，必要时才保留原始 ICD-10、ATC、Field ID 作为溯源依据。"
         ),
     }
-
 async def get_research_capabilities() -> dict[str, Any]:
     sample = await get_sample_distribution()
     return {
@@ -2057,6 +2152,7 @@ async def dispatch_query(intent: str, entities: ExtractedEntities, message: str,
             "suggested_reply": "主任，我需要再确认一下：您是想看数据概况、查某个疾病/药物人数，还是要建立队列研究？",
         },
     }
+
 
 
 
