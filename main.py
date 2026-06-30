@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from agent.academic_workflow import build_academic_workflow_plan
+from agent.agent_v2 import run_llm_agent_v2
 from agent.workflow import run_rwe_agent
 from database import close_db_pool, get_db_connection, init_db_pool, release_db_connection
 from dialogue_manager import handle_chat_message, run_session_analysis
@@ -72,6 +73,11 @@ async def academic_workflow() -> dict[str, Any]:
 @app.post("/api/agent")
 async def agent_chat(payload: AgentRequest) -> dict[str, Any]:
     return await run_rwe_agent(payload.message, payload.session_id)
+
+
+@app.post("/api/agent-v2")
+async def agent_chat_v2(payload: AgentRequest) -> dict[str, Any]:
+    return await run_llm_agent_v2(payload.message, payload.session_id)
 
 
 @app.post("/api/chat")
@@ -150,3 +156,6 @@ async def download_file(filename: str) -> FileResponse:
 
     media_type = "text/csv; charset=utf-8" if file_path.suffix.lower() == ".csv" else "application/octet-stream"
     return FileResponse(path=file_path, media_type=media_type, filename=file_path.name)
+
+
+

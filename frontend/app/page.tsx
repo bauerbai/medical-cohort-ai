@@ -168,6 +168,7 @@ type Message = {
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8001";
+const AGENT_ENDPOINT = process.env.NEXT_PUBLIC_AGENT_ENDPOINT ?? "/api/agent-v2";
 const sessionId = `web-${Math.random().toString(36).slice(2)}`;
 
 function formatNumber(value?: number | null) {
@@ -265,7 +266,7 @@ export default function Home() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/agent`, {
+      const response = await fetch(`${API_BASE_URL}${AGENT_ENDPOINT}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, session_id: sessionId }),
@@ -300,7 +301,7 @@ export default function Home() {
     ]);
     setIsAnalyzing(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/agent`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "开始分析", session_id: sessionId }) });
+      const response = await fetch(`${API_BASE_URL}${AGENT_ENDPOINT}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "开始分析", session_id: sessionId }) });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -835,6 +836,8 @@ export default function Home() {
     </main>
   );
 }
+
+
 
 
 
