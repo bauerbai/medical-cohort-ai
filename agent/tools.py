@@ -113,6 +113,25 @@ CLINICAL_TERM_DICTIONARY: dict[str, dict[str, Any]] = {
         "icd10_prefix": "I25",
         "label": "慢性缺血性心脏病/冠心病",
         "description_terms": ["ischemic heart", "ischaemic heart", "coronary", "冠心病"],
+    },    "心力衰竭": {
+        "icd10_prefix": "I50",
+        "label": "心力衰竭",
+        "description_terms": ["heart failure", "cardiac failure", "心力衰竭", "心衰"],
+    },
+    "心衰": {
+        "icd10_prefix": "I50",
+        "label": "心力衰竭",
+        "description_terms": ["heart failure", "cardiac failure", "心力衰竭", "心衰"],
+    },
+    "heart failure": {
+        "icd10_prefix": "I50",
+        "label": "心力衰竭",
+        "description_terms": ["heart failure", "cardiac failure"],
+    },
+    "i50": {
+        "icd10_prefix": "I50",
+        "label": "心力衰竭",
+        "description_terms": ["heart failure", "cardiac failure"],
     },
     "哮喘": {
         "icd10_prefix": "J45",
@@ -521,5 +540,6 @@ RWE_AGENT_TOOLS = [
     run_cox_regression,
     run_propensity_score_matching,
 ]
+
 
 

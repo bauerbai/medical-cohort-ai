@@ -34,6 +34,10 @@ class SemanticContextTests(unittest.TestCase):
         self.assertEqual(population.size, 81)
         self.assertEqual(len(population.diseases), 2)
 
+    def test_heart_failure_entity(self) -> None:
+        entities = extract_entities("统计队列中确诊过心力衰竭的患者总数")
+
+        self.assertEqual([(item.canonical, item.code) for item in entities.diseases], [("心力衰竭", "I50")])
     def test_hypertension_drug_phrase_is_not_hypertension_disease(self) -> None:
         entities = extract_entities("吃高血压药同时患糖尿病的有多少，男女比例")
 
@@ -55,6 +59,7 @@ class SemanticContextTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

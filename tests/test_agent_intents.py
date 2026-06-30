@@ -36,6 +36,7 @@ class AgentIntentRouterTests(unittest.TestCase):
         self.assert_intent("有多少得高血压的", "disease_count")
         self.assert_intent("糖尿病患者多少", "disease_count")
         self.assert_intent("G30 有多少人", "disease_count")
+        self.assert_intent("统计队列中确诊过心力衰竭的患者总数", "disease_count")
 
     def test_disease_intersection_questions(self) -> None:
         self.assert_intent("同时得糖尿病和高血压的人有多少？男女比例是多少？能下载一下这些数据吗", "disease_intersection")
@@ -105,6 +106,7 @@ class AgentIntentRouterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

@@ -35,6 +35,10 @@ DISEASE_CONCEPTS: dict[str, dict[str, Any]] = {
         "canonical": "急性心肌梗死",
         "icd10_prefix": "I21",
         "aliases": ["心梗", "心肌梗死", "myocardial infarction", "i21"],
+    },    "心力衰竭": {
+        "canonical": "心力衰竭",
+        "icd10_prefix": "I50",
+        "aliases": ["心力衰竭", "心衰", "heart failure", "cardiac failure", "i50"],
     },
     "脑卒中": {
         "canonical": "脑卒中",
@@ -264,6 +268,7 @@ def extract_entities(message: str) -> ExtractedEntities:
             )
 
     return ExtractedEntities(diseases=diseases, drugs=drugs, demographics=demographics, exposures=exposures)
+
 
 
 
