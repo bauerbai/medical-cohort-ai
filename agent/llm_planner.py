@@ -29,6 +29,18 @@ SUPPORTED_INTENTS = {
 }
 
 
+def _strip_json_fence(content: str) -> str:
+    stripped = content.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        stripped = "\n".join(lines).strip()
+    return stripped
+
+
 class LLMToolPlan(BaseModel):
     intent: str = Field(description="One supported backend tool intent.")
     rewritten_query: str = Field(description="Chinese query rewritten with explicit clinical entities.")
@@ -77,7 +89,7 @@ async def plan_with_llm(message: str) -> LLMToolPlan | None:
                 {"role": "user", "content": message},
             ]
         )
-        data = json.loads(content)
+        data = json.loads(_strip_json_fence(content))
         plan = LLMToolPlan.model_validate(data)
     except (LLMRouterUnavailable, json.JSONDecodeError, ValidationError):
         return None
@@ -97,4 +109,5 @@ def plan_with_rules(message: str) -> LLMToolPlan:
         needs_confirmation=intent == "clarify",
         safety_notes=[],
     )
+
 

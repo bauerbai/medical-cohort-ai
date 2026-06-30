@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from agent.llm_planner import plan_with_rules
+from agent.llm_planner import _strip_json_fence, plan_with_rules
 from main import app
 
 
@@ -14,6 +14,12 @@ class LLMAgentV2Tests(unittest.TestCase):
         self.assertEqual(plan.rewritten_query, "吃高血压药同时患糖尿病的有多少，男女比例")
         self.assertIn("规则解析回退", plan.reasoning)
 
+    def test_strip_json_fence(self) -> None:
+        content = """```json
+{"intent":"data_overview"}
+```"""
+
+        self.assertEqual(_strip_json_fence(content), '{"intent":"data_overview"}')
     def test_agent_v2_route_is_registered(self) -> None:
         routes = {getattr(route, "path", "") for route in app.routes}
 
@@ -23,3 +29,5 @@ class LLMAgentV2Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
