@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+asyncpg
+python-dotenv
+matplotlib
+python-docx
+pandas
+numpy
+lifelines
+scikit-learn
+statsmodels
+plotly
+langchain-core
+pydantic
+langgraph
