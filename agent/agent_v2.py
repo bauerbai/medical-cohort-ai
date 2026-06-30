@@ -18,10 +18,14 @@ def _metadata_for_kind(kind: str, result: dict[str, Any]) -> dict[str, Any]:
 async def run_llm_agent_v2(message: str, session_id: str = "default") -> dict[str, Any]:
     state = SESSION_MEMORY_V2.setdefault(session_id, {"history": [], "metadata": {}})
     plan = await plan_with_llm(message)
+    rule_plan = plan_with_rules(message)
     planner_source = "llm_router"
     if plan is None:
-        plan = plan_with_rules(message)
+        plan = rule_plan
         planner_source = "rule_fallback"
+    elif plan.intent == "clarify" and rule_plan.intent != "clarify":
+        plan = rule_plan
+        planner_source = "llm_router_rule_override"
 
     if plan.intent == "clarify" and planner_source == "rule_fallback":
         # Preserve the mature rule agent for ambiguous flows until the LLM router is configured.
@@ -53,3 +57,4 @@ async def run_llm_agent_v2(message: str, session_id: str = "default") -> dict[st
         "llm_plan": plan.model_dump(),
         "safety_notes": plan.safety_notes,
     }
+

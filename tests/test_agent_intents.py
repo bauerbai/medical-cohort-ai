@@ -10,6 +10,9 @@ class AgentIntentRouterTests(unittest.TestCase):
         decision = classify_intent(message)
         self.assertEqual(decision.intent, expected, f"{message!r} -> {decision.intent}: {decision.reason}")
 
+    def test_data_dictionary_questions(self) -> None:
+        self.assert_intent("现在数据库中的数据字典是怎么构成的？详细说明一下", "data_dictionary")
+        self.assert_intent("ICD 和 ATC 是怎么映射成中文名的", "data_dictionary")
     def test_data_overview_questions(self) -> None:
         self.assert_intent("这个数据库中的样本分布能描述一下吗", "data_overview")
         self.assert_intent("这个库大概是什么样的数据", "data_overview")
@@ -102,6 +105,8 @@ class AgentIntentRouterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
 
 
 

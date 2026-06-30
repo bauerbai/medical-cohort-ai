@@ -14,6 +14,10 @@ class LLMAgentV2Tests(unittest.TestCase):
         self.assertEqual(plan.rewritten_query, "吃高血压药同时患糖尿病的有多少，男女比例")
         self.assertIn("规则解析回退", plan.reasoning)
 
+    def test_rule_fallback_data_dictionary_plan(self) -> None:
+        plan = plan_with_rules("现在数据库中的数据字典是怎么构成的？详细说明一下")
+
+        self.assertEqual(plan.intent, "data_dictionary")
     def test_strip_json_fence(self) -> None:
         content = """```json
 {"intent":"data_overview"}
@@ -29,5 +33,7 @@ class LLMAgentV2Tests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
 
 

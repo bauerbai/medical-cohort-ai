@@ -202,6 +202,110 @@ async def describe_database_identity() -> dict[str, Any]:
     }
 
 
+
+async def describe_data_dictionary() -> dict[str, Any]:
+    connection = await get_db_connection()
+    try:
+        dictionary_exists = await connection.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'ukb_semantic'
+                  AND table_name = 'concept_dictionary'
+            );
+            """
+        )
+        domain_rows = []
+        examples = []
+        if dictionary_exists:
+            domain_rows = await connection.fetch(
+                """
+                SELECT domain, COUNT(*) AS concept_count
+                FROM ukb_semantic.concept_dictionary
+                GROUP BY domain
+                ORDER BY domain;
+                """
+            )
+            examples = await connection.fetch(
+                """
+                SELECT domain, concept_code, concept_name_en, concept_name_cn
+                FROM ukb_semantic.concept_dictionary
+                ORDER BY domain, concept_code
+                LIMIT 12;
+                """
+            )
+        coverage = await connection.fetchrow(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM ukb_semantic.patient_master_index WHERE sex_label IS NOT NULL) AS sex_labeled,
+                (SELECT COUNT(*) FROM ukb_semantic.unified_diagnoses WHERE disease_name_cn IS NOT NULL) AS diagnoses_labeled,
+                (SELECT COUNT(*) FROM ukb_semantic.unified_medications WHERE drug_name_cn IS NOT NULL) AS medications_labeled,
+                (SELECT COUNT(*) FROM ukb_semantic.unified_first_occurrences WHERE event_name_cn IS NOT NULL) AS first_occurrences_labeled;
+            """
+        )
+    finally:
+        await release_db_connection(connection)
+
+    domains = [dict(row) for row in domain_rows]
+    example_rows = [dict(row) for row in examples]
+    coverage_dict = dict(coverage) if coverage else {}
+    domain_text = "、".join(f"{row['domain']} {row['concept_count']}条" for row in domains) or "暂无 concept_dictionary 记录"
+    example_text = "、".join(
+        f"{row['domain']}:{row['concept_code']}→{row['concept_name_cn']}"
+        for row in example_rows[:8]
+    ) or "暂无示例"
+
+    return {
+        "status": "success",
+        "analysis_type": "data_dictionary",
+        "dictionary_table": "ukb_semantic.concept_dictionary",
+        "dictionary_exists": bool(dictionary_exists),
+        "domains": domains,
+        "examples": example_rows,
+        "semantic_columns": [
+            {
+                "table": "ukb_semantic.patient_master_index",
+                "raw_columns": ["sex"],
+                "semantic_columns": ["sex_label"],
+                "meaning": "把 0/1 或 male/female 翻译为 女/男。",
+            },
+            {
+                "table": "ukb_semantic.unified_diagnoses",
+                "raw_columns": ["mapped_icd10", "icd10_description"],
+                "semantic_columns": ["disease_name_cn"],
+                "meaning": "清洗 ICD-10 脏编码并结合英文描述映射到中文疾病名。",
+            },
+            {
+                "table": "ukb_semantic.unified_medications",
+                "raw_columns": ["original_code", "chemical_substance", "product_name"],
+                "semantic_columns": ["drug_name_cn"],
+                "meaning": "用 ATC/原始药名/成分名映射中文通用药名。",
+            },
+            {
+                "table": "ukb_semantic.unified_first_occurrences",
+                "raw_columns": ["field_id"],
+                "semantic_columns": ["event_name_cn"],
+                "meaning": "把 UKB Field ID 翻译为中文首发事件名。",
+            },
+        ],
+        "coverage": coverage_dict,
+        "suggested_reply": (
+            "主任，这个库的数据字典分两层：第一层是全局概念字典表 "
+            "ukb_semantic.concept_dictionary，字段包括 domain、concept_code、concept_name_en、concept_name_cn，"
+            f"目前按领域统计为：{domain_text}。示例包括：{example_text}。"
+            "第二层是已经写回原表的语义化列：patient_master_index.sex_label 用于男/女标签；"
+            "unified_diagnoses.disease_name_cn 用于 ICD-10/诊断描述到中文疾病名；"
+            "unified_medications.drug_name_cn 用于 ATC 或药物名称到中文通用名；"
+            "unified_first_occurrences.event_name_cn 用于 UKB Field ID 到首发事件中文名。"
+            f"当前语义化覆盖情况：性别标签 {coverage_dict.get('sex_labeled', 0)}行，"
+            f"诊断中文名 {coverage_dict.get('diagnoses_labeled', 0)}行，"
+            f"药物中文名 {coverage_dict.get('medications_labeled', 0)}行，"
+            f"首发事件中文名 {coverage_dict.get('first_occurrences_labeled', 0)}行。"
+            "所以前端和 Agent 展示时会优先用这些 _cn 或 _label 字段，必要时才保留原始 ICD-10、ATC、Field ID 作为溯源依据。"
+        ),
+    }
+
 async def get_research_capabilities() -> dict[str, Any]:
     sample = await get_sample_distribution()
     return {
@@ -1922,6 +2026,8 @@ async def dispatch_query(intent: str, entities: ExtractedEntities, message: str,
         return {"kind": "research_capabilities", "result": await get_research_capabilities()}
     if intent == "data_overview":
         return {"kind": "sample_distribution", "result": await get_sample_distribution()}
+    if intent == "data_dictionary":
+        return {"kind": "data_dictionary", "result": await describe_data_dictionary()}
     if intent == "demographic_query":
         return {"kind": "demographic_distribution", "result": await get_demographic_distribution(entities, message)}
     if intent == "disease_count" and entities.first_disease_text():
@@ -1951,6 +2057,10 @@ async def dispatch_query(intent: str, entities: ExtractedEntities, message: str,
             "suggested_reply": "主任，我需要再确认一下：您是想看数据概况、查某个疾病/药物人数，还是要建立队列研究？",
         },
     }
+
+
+
+
 
 
 

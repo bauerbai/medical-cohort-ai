@@ -13,6 +13,7 @@ SUPPORTED_INTENTS = {
     "database_identity",
     "capability_review",
     "data_overview",
+    "data_dictionary",
     "demographic_query",
     "disease_count",
     "disease_intersection",
@@ -60,10 +61,11 @@ SYSTEM_PROMPT = """
 4. 遇到疾病人数、患病率、交集人群，一律要求患者级去重；不要暗示 COUNT(*)。
 5. 遇到用药组 vs 未用药组疗效比较，必须提示适应症混杂和不朽时间偏倚。
 6. 遇到“高血压药、降压药、CCB、ACEI、ARB、利尿剂、β阻滞剂”，应识别为药物类别，不要误识别成高血压疾病，除非用户明确说“高血压患者”。
-7. 不确定时选择 clarify，但要说明缺什么信息。
+7. 用户询问数据字典、概念字典、语义化字段、ICD/ATC/Field ID 如何映射时，选择 data_dictionary。
+8. 不确定时选择 clarify，但要说明缺什么信息。
 
 允许 intent：
-{intents}
+__SUPPORTED_INTENTS__
 
 输出 JSON 示例：
 {
@@ -109,5 +111,8 @@ def plan_with_rules(message: str) -> LLMToolPlan:
         needs_confirmation=intent == "clarify",
         safety_notes=[],
     )
+
+
+
 
 

@@ -164,6 +164,7 @@ async def intent_node(state: AgentState) -> AgentState:
     elif frame.intent in {
         "database_identity",
         "data_overview",
+        "data_dictionary",
         "demographic_query",
         "disease_count",
         "disease_intersection",
@@ -222,6 +223,7 @@ async def design_review_node(state: AgentState) -> AgentState:
     if intent in {
         "database_identity",
         "data_overview",
+        "data_dictionary",
         "demographic_query",
         "disease_count",
         "disease_intersection",
@@ -575,6 +577,8 @@ async def run_rwe_agent(message: str, session_id: str = "default") -> dict[str, 
         "context": result.get("conversation_context"),
         "system_prompt_version": hash(RWE_AGENT_SYSTEM_PROMPT),
     }
+
+
 
 
 

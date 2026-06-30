@@ -11,6 +11,7 @@ AgentIntent = Literal[
     "greeting",
     "database_identity",
     "data_overview",
+    "data_dictionary",
     "demographic_query",
     "disease_count",
     "disease_intersection",
@@ -89,11 +90,28 @@ METHODOLOGY_TERMS = {"什么是", "解释", "为什么", "or", "rr", "hr", "cox"
 TERM_EXPLANATION_TERMS = {"是什么", "什么意思", "啥意思", "代表什么", "解释一下", "是什么啊"}
 RESULT_EXPLANATION_TERMS = {"为什么", "为啥", "怎么回事", "口径", "加起来", "相加", "大于", "超过", "不等于"}
 DRUG_MECHANISM_TERMS = {"类型", "种类", "机制", "类别", "哪种类型", "按照降压药类型", "分类", "中文名", "转化成中文"}
+DATA_DICTIONARY_TERMS = {
+    "数据字典",
+    "概念字典",
+    "字典",
+    "语义化",
+    "语义列",
+    "semantic column",
+    "concept_dictionary",
+    "concept dictionary",
+    "icd",
+    "atc",
+    "field id",
+    "字段怎么映射",
+    "怎么构成",
+}
 OVERVIEW_TERMS = {
     "样本分布",
     "数据分布",
     "数据库分布",
     "数据概况",
+    "数据的概况",
+    "基本情况",
     "样本概况",
     "总体情况",
     "整体情况",
@@ -157,6 +175,9 @@ def classify_intent(message: str) -> IntentDecision:
 
     if _contains_any(text, CAPABILITY_TERMS):
         return IntentDecision("capability_review", 0.95, "能力范围问题", entities, reset_context=True)
+
+    if _contains_any(text, DATA_DICTIONARY_TERMS):
+        return IntentDecision("data_dictionary", 0.94, "数据字典/语义化映射说明", entities, reset_context=True)
 
     if entities.drugs and entities.diseases and _contains_any(text, CAUSAL_SAFETY_TERMS):
         return IntentDecision("causal_safety_review", 0.95, "存在因果/生存分析偏倚风险，需先方法学排雷", entities, reset_context=True)
@@ -226,6 +247,12 @@ def classify_intent(message: str) -> IntentDecision:
         entities,
         reset_context=True,
     )
+
+
+
+
+
+
 
 
 
